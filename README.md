@@ -11,10 +11,17 @@ This repository contains a static front-end demo used in our Part 2 presentation
 Open `index.html` in any modern browser.
 
 ## Live Preview (GitHub Pages)
-Once Pages is enabled: https://sharom40.github.io/starbucks-demo/
-<a href="./index.html">Concept 1 — Quick Customization (original)</a>
-<a href="./concept2-discovery/">Concept 2 — Menu Discovery & Tags</a>
-<a href="./concept-split-bill/">Concept X — Split Bill Preview</a>
+- Landing 
+  https://sharom40.github.io/starbucks-demo/
+
+- Concept 1 — Quick Customization (original)
+  https://sharom40.github.io/starbucks-demo/
+
+- Concept 2 — Menu Discovery & Tags
+  https://sharom40.github.io/starbucks-demo/concept2-discovery/
+
+- Concept X — Split Bill Preview
+  https://sharom40.github.io/starbucks-demo/concept-split-bill/
 ## Notes
 - Plain HTML/CSS/JS, no frameworks.
 - Built by Xinrui H.
