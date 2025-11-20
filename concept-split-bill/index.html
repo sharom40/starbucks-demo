@@ -1,0 +1,235 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Split Bill Preview (Demo)</title>
+<style>
+  :root{--bd:#ddd;--tx:#111;--mut:#666;--btn:#111}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto;margin:24px auto;max-width:900px;padding:0 16px;color:var(--tx)}
+  h1{font-size:24px;margin:8px 0 12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .box{border:1px solid var(--bd);border-radius:14px;padding:12px;margin:8px 0}
+  .mut{color:var(--mut)}
+  .tabs{display:flex;gap:8px;margin:8px 0}
+  .tab{border:1px solid #333;border-radius:999px;padding:8px 12px;cursor:pointer;background:#fff}
+  .tab.active{background:#111;color:#fff}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid var(--bd);padding:8px;text-align:center}
+  input[type="number"]{width:80px}
+  .btn{border:1px solid var(--btn);background:#fff;border-radius:999px;padding:8px 12px;cursor:pointer}
+  .btn.pri{background:#111;color:#fff}
+  .warn{color:#b00020}
+  .right{margin-left:auto}
+</style>
+
+<h1>Split Bill Preview</h1>
+<p class="mut">Pure front-end preview — no payment. For deciding whether to “order together”. Handles rounding & last-person top-up.</p>
+
+<div class="box">
+  <strong>Order</strong>
+  <table id="order">
+    <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+    <tbody></tbody>
+    <tfoot><tr><th colspan="3">Order Total</th><th id="orderTotal">$0.00</th></tr></tfoot>
+  </table>
+</div>
+
+<div class="box row" style="align-items:center">
+  <div>People: <input type="number" id="people" min="2" max="6" value="3"></div>
+  <div class="tabs">
+    <button class="tab active" data-mode="equal">Equal Split</button>
+    <button class="tab" data-mode="items">By Items</button>
+    <button class="tab" data-mode="custom">Custom %</button>
+  </div>
+  <button class="btn right" id="undo">Undo</button>
+  <button class="btn" id="copy">Copy share code</button>
+</div>
+
+<div class="box" id="mode-equal">
+  <strong>Equal Split</strong>
+  <p class="mut">Evenly divides the total. Rounding difference is added to the last person.</p>
+</div>
+
+<div class="box" id="mode-items" hidden>
+  <strong>By Items</strong>
+  <div id="itemsGrid" class="row"></div>
+  <p class="mut">Check who pays which items.</p>
+</div>
+
+<div class="box" id="mode-custom" hidden>
+  <strong>Custom %</strong>
+  <div id="customGrid" class="row"></div>
+  <p class="mut">Percentages must sum to 100%. Last person auto-adjusts.</p>
+</div>
+
+<div class="box">
+  <strong>Result</strong>
+  <table id="result">
+    <thead><tr id="rHead"></tr></thead>
+    <tbody><tr id="rBody"></tr></tbody>
+    <tfoot><tr id="rFoot"></tr></tfoot>
+  </table>
+  <div id="msg" class="mut"></div>
+</div>
+
+<script>
+const fmt = v=>"$"+v.toFixed(2);
+const ITEMS = [
+  {name:"Iced Latte", qty:2, price:4.75},
+  {name:"Matcha Latte", qty:1, price:5.25},
+  {name:"Cold Brew", qty:1, price:4.50}
+];
+
+const $orderTbody=document.querySelector('#order tbody');
+const $orderTotal=document.getElementById('orderTotal');
+const $people=document.getElementById('people');
+const $tabs=document.querySelectorAll('.tab');
+const $modeEqual=document.getElementById('mode-equal');
+const $modeItems=document.getElementById('mode-items');
+const $modeCustom=document.getElementById('mode-custom');
+const $itemsGrid=document.getElementById('itemsGrid');
+const $customGrid=document.getElementById('customGrid');
+const $rHead=document.getElementById('rHead');
+const $rBody=document.getElementById('rBody');
+const $rFoot=document.getElementById('rFoot');
+const $msg=document.getElementById('msg');
+
+let mode='equal', P=+$people.value, historyStack=[];
+function pushHistory(){ historyStack.push(JSON.stringify({mode,P,custom:readCustom()})); if(historyStack.length>30)historyStack.shift(); }
+function undo(){ if(!historyStack.length)return; const s=JSON.parse(historyStack.pop()); mode=s.mode; P=s.P; $people.value=P; setMode(mode); writeCustom(s.custom); compute(); }
+
+function orderTotal(){ return ITEMS.reduce((s,i)=>s+i.qty*i.price,0); }
+
+function renderOrder(){
+  $orderTbody.innerHTML='';
+  ITEMS.forEach(i=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i.name}</td><td>${i.qty}</td><td>${fmt(i.price)}</td><td>${fmt(i.qty*i.price)}</td>`;
+    $orderTbody.appendChild(tr);
+  });
+  $orderTotal.textContent=fmt(orderTotal());
+}
+
+function setMode(m){
+  mode=m; $tabs.forEach(t=>t.classList.toggle('active',t.dataset.mode===m));
+  $modeEqual.hidden = m!=='equal';
+  $modeItems.hidden = m!=='items';
+  $modeCustom.hidden = m!=='custom';
+}
+
+function renderPeopleHeaders(){
+  $rHead.innerHTML = `<th></th>` + Array.from({length:P},(_,k)=>`<th>P${k+1}</th>`).join('');
+}
+function renderResultRow(vals){
+  $rBody.innerHTML = `<td>Pay</td>` + vals.map(v=>`<td>${fmt(v)}</td>`).join('');
+}
+function renderFoot(total){
+  $rFoot.innerHTML = `<td>Total</td>` + Array.from({length:P},(_,k)=>`<td>${fmt(total[k])}</td>`).join('');
+}
+
+function buildItemsGrid(){
+  $itemsGrid.innerHTML='';
+  for(let p=0;p<P;p++){
+    const col=document.createElement('div'); col.style.minWidth='140px';
+    col.innerHTML=`<strong>P${p+1}</strong>`;
+    ITEMS.forEach((it,idx)=>{
+      const id=`p${p}-i${idx}`;
+      const w=document.createElement('div');
+      w.innerHTML=`<label><input type="checkbox" id="${id}"> ${it.name}</label>`;
+      $itemsGrid.appendChild(w);
+    });
+  }
+}
+function readItemsSelection(){
+  // 每项只能被若干人分，简单处理：勾选后该人承担该项全额（示例即可）
+  const sel=Array.from({length:P},()=>[]);
+  ITEMS.forEach((it,idx)=>{
+    for(let p=0;p<P;p++){
+      const id=`p${p}-i${idx}`;
+      const el=document.getElementById(id);
+      if(el && el.checked) sel[p].push(idx);
+    }
+  });
+  return sel;
+}
+
+function buildCustomGrid(){
+  $customGrid.innerHTML='';
+  for(let p=0;p<P;p++){
+    const id=`pc${p}`;
+    const d=document.createElement('div'); d.innerHTML=`P${p+1}: <input type="number" id="${id}" min="0" max="100" step="1" value="${(100/P)|0}"> %`;
+    $customGrid.appendChild(d);
+  }
+}
+function readCustom(){
+  return Array.from({length:P},(_,p)=> +document.getElementById(`pc${p}`)?.value || 0);
+}
+function writeCustom(arr){
+  arr?.forEach((v,p)=>{ const el=document.getElementById(`pc${p}`); if(el) el.value=v; });
+}
+
+function compute(){
+  const total=orderTotal();
+  let pays=Array(P).fill(0); $msg.textContent='';
+
+  if(mode==='equal'){
+    let base = +(total / P).toFixed(2);
+    pays = pays.map(()=>base);
+    const sum = +(pays.reduce((a,b)=>a+b,0)).toFixed(2);
+    const diff = +(total - sum).toFixed(2);
+    pays[P-1] += diff; // 兜底
+    if(diff!==0) $msg.textContent = `Rounded difference ${diff>0?'+':''}${fmt(diff)} added to P${P}.`;
+  }
+  else if(mode==='items'){
+    const sel=readItemsSelection();
+    for(let p=0;p<P;p++){
+      sel[p].forEach(idx=> pays[p]+= ITEMS[idx].qty*ITEMS[idx].price );
+    }
+    const sum = +(pays.reduce((a,b)=>a+b,0)).toFixed(2);
+    const diff = +(total - sum).toFixed(2);
+    pays[P-1] += diff; // 兜底
+    if(diff!==0) $msg.textContent = `Adjusted ${fmt(diff)} to P${P} to match order total.`;
+  }
+  else{ // custom %
+    let perc=readCustom();
+    const s = perc.reduce((a,b)=>a+b,0);
+    if(s!==100){
+      // 自动把最后一人调整到 100%
+      perc[P-1] += (100 - s);
+      document.getElementById(`pc${P-1}`).value = perc[P-1];
+      $msg.textContent = 'Auto-adjusted last person to make 100%.';
+    }
+    pays = perc.map(p=> +(total * p/100).toFixed(2) );
+    const sum = +(pays.reduce((a,b)=>a+b,0)).toFixed(2);
+    const diff = +(total - sum).toFixed(2);
+    pays[P-1] += diff; // 兜底
+    if(diff!==0) $msg.textContent += ` Rounded ${fmt(diff)} to P${P}.`;
+  }
+
+  renderPeopleHeaders();
+  renderResultRow(pays);
+  renderFoot(pays);
+}
+
+function copyCode(){
+  const code = Math.random().toString(36).slice(2,6).toUpperCase() + "-" + Math.random().toString(36).slice(2,6).toUpperCase();
+  navigator.clipboard?.writeText(code);
+  alert("Share code: "+code+" (demo only)");
+}
+
+function mount(){
+  renderOrder();
+  setMode('equal');
+  renderPeopleHeaders();
+  buildItemsGrid();
+  buildCustomGrid();
+  compute();
+  $tabs.forEach(t=> t.onclick=()=>{ pushHistory(); setMode(t.dataset.mode); compute(); });
+  $people.oninput = ()=>{ let v=+$people.value||2; v=Math.max(2,Math.min(6,v)); $people.value=v; pushHistory(); P=v; buildItemsGrid(); buildCustomGrid(); compute(); };
+  document.getElementById('undo').onclick=undo;
+  document.getElementById('copy').onclick=copyCode;
+  // 监听 items/custom 的变化
+  $itemsGrid.addEventListener('change', ()=>{ pushHistory(); compute(); });
+  $customGrid.addEventListener('input',  ()=>{ pushHistory(); compute(); });
+}
+mount();
+</script>
