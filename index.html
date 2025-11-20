@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Starbucks App – Demo (Static)</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#f7f7f7}
+  .phone{max-width:420px;margin:24px auto;padding:16px;background:#fff;border:2px solid #111;border-radius:24px}
+  .hdr{border:1px solid #333;border-radius:12px;padding:12px;margin-bottom:12px;font-weight:600}
+  .img{height:180px;border:1px dashed #666;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:10px 0;color:#666}
+  .row{display:flex;align-items:center;gap:12px;margin:12px 0}
+  .qty button{width:44px;height:44px;font-size:22px;border:1px solid #333;background:#fff;border-radius:10px;cursor:pointer}
+  .qty .num{width:52px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #333;border-radius:10px;font-weight:600}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+  .chip{border:1px solid #333;border-radius:999px;padding:8px 12px;cursor:pointer;background:#fff}
+  .more{border:1px solid #333;border-radius:12px;padding:12px;text-align:center;cursor:pointer;margin-top:6px}
+  .cta{margin:16px 0}
+  .cta button{width:100%;height:52px;border:2px solid #111;border-radius:14px;background:#111;color:#fff;font-weight:700;cursor:pointer}
+  .banner{position:sticky;bottom:0;left:0;right:0;background:#fff;border:2px solid #111;border-radius:18px;margin-top:20px;padding:12px}
+  .banner .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:600}
+  .banner .actions{display:flex;gap:10px;flex-wrap:wrap}
+  .banner .actions button{border:1px solid #333;background:#fff;border-radius:10px;padding:10px 12px;cursor:pointer}
+  .muted{color:#666;font-size:14px}
+  .disabled{opacity:.5;pointer-events:none}
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="hdr">Iced Latte</div>
+    <div class="img">Drink Image</div>
+
+    <div class="row qty">
+      <div style="font-weight:600;">Quantity:</div>
+      <button id="minusBtn">−</button>
+      <div class="num" id="qtyNum">1</div>
+      <button id="plusBtn">+</button>
+    </div>
+
+    <div class="chips">
+      <div class="chip" data-key="milk">Milk: 2%</div>
+      <div class="chip" data-key="sweet">Sweet: Normal</div>
+      <div class="chip" data-key="ice">Ice: Light</div>
+      <div class="chip" data-key="extras">Extras: None</div>
+    </div>
+
+    <div class="more" id="moreToggle">More options ▾</div>
+    <div class="cta"><button id="addBtn">Add to Order</button></div>
+
+    <!-- Post-order banner -->
+    <div id="banner" class="banner" style="display:none;">
+      <div class="top">
+        <div>You can edit this order for <span id="countdown">03:00</span></div>
+        <div class="muted" id="prepState">Preparation not started</div>
+      </div>
+      <div class="actions">
+        <button id="editBtn">Edit items</button>
+        <button id="addItemBtn">Add item</button>
+        <button id="cancelBtn">Cancel order</button>
+      </div>
+      <div class="muted" style="margin-top:6px;">Banner disappears when the timer ends or when preparation starts.</div>
+    </div>
+  </div>
+
+<script>
+  // Quantity
+  const qtyNum = document.getElementById('qtyNum');
+  document.getElementById('minusBtn').onclick = () => {
+    const n = Math.max(1, parseInt(qtyNum.textContent,10)-1);
+    qtyNum.textContent = n;
+  };
+  document.getElementById('plusBtn').onclick = () => {
+    qtyNum.textContent = parseInt(qtyNum.textContent,10)+1;
+  };
+
+  // “More options” toggle (demo only)
+  const moreToggle = document.getElementById('moreToggle');
+  let moreOpen = false;
+  moreToggle.onclick = () => {
+    moreOpen = !moreOpen;
+    moreToggle.textContent = moreOpen ? 'More options ▴' : 'More options ▾';
+  };
+
+  // Post-order banner with countdown
+  const banner = document.getElementById('banner');
+  const countdownEl = document.getElementById('countdown');
+  const prepStateEl = document.getElementById('prepState');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const editBtn = document.getElementById('editBtn');
+  const addItemBtn = document.getElementById('addItemBtn');
+
+  let timer = null, remain = 0, prepStarted = false;
+
+  function fmt(sec){
+    const m = String(Math.floor(sec/60)).padStart(2,'0');
+    const s = String(sec%60).padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  function startBanner() {
+    remain = 30; // 3 minutes (change to 30 for faster demo)
+    prepStarted = false;
+    prepStateEl.textContent = 'Preparation not started';
+    cancelBtn.classList.remove('disabled');
+    banner.style.display = 'block';
+    countdownEl.textContent = fmt(remain);
+    timer && clearInterval(timer);
+    timer = setInterval(()=>{
+      remain--;
+      countdownEl.textContent = fmt(remain);
+      // simulate “prep started” at 120s -> disable cancel
+      if (remain === 20 && !prepStarted){
+        prepStarted = true;
+        prepStateEl.textContent = 'Preparation started – edits may be limited';
+        cancelBtn.classList.add('disabled');
+      }
+      if (remain <= 0){
+        clearInterval(timer);
+        banner.style.display = 'none';
+      }
+    },1000);
+  }
+
+  document.getElementById('addBtn').onclick = () => {
+    startBanner();
+    alert('Order placed (demo). Showing short edit window…');
+  };
+  editBtn.onclick = () => alert('Edit flow (demo) – open item list / adjust options');
+  addItemBtn.onclick = () => alert('Add item (demo) – open menu quick add');
+  cancelBtn.onclick = () => {
+    if (cancelBtn.classList.contains('disabled')) return;
+    clearInterval(timer);
+    banner.style.display = 'none';
+    alert('Order canceled (demo).');
+  };
+
+  // Quick chips tap (demo)
+  document.querySelectorAll('.chip').forEach(ch => {
+    ch.onclick = () => alert(`Open quick panel for: ${ch.dataset.key} (demo)`);
+  });
+</script>
+</body>
+</html>
