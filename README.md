@@ -12,7 +12,9 @@ Open `index.html` in any modern browser.
 
 ## Live Preview (GitHub Pages)
 Once Pages is enabled: https://sharom40.github.io/starbucks-demo/
-
+<a href="./index.html">Concept 1 — Quick Customization (original)</a>
+<a href="./concept2-discovery/">Concept 2 — Menu Discovery & Tags</a>
+<a href="./concept-split-bill/">Concept X — Split Bill Preview</a>
 ## Notes
 - Plain HTML/CSS/JS, no frameworks.
 - Built by Xinrui H.
