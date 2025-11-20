@@ -1,0 +1,97 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept 2 — Menu Discovery & Tag Filters</title>
+<style>
+  :root{--bd:#ddd;--tx:#111;--mut:#666;--chip:#f5f5f5}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto;margin:24px auto;max-width:960px;padding:0 16px;color:var(--tx)}
+  h1{font-size:24px;margin:8px 0 12px}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .chips{position:sticky;top:0;background:#fff;padding:8px 0 12px;border-bottom:1px solid var(--bd);z-index:1}
+  .chip{border:1px solid #333;border-radius:999px;padding:8px 12px;cursor:pointer;background:var(--chip);user-select:none}
+  .chip.active{background:#111;color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:14px}
+  .card{border:1px solid var(--bd);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .img{height:140px;border:1px dashed #bbb;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#999}
+  .name{font-weight:700;display:flex;align-items:center;gap:6px}
+  .badge{font-size:12px;border:1px solid #333;border-radius:999px;padding:2px 8px}
+  .desc{color:var(--mut)}
+  .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .tag{font-size:12px;border:1px solid var(--bd);border-radius:999px;padding:4px 8px;background:#fafafa}
+  .info{font-size:12px;border-bottom:1px dotted #555;cursor:pointer}
+  .btn{align-self:flex-start;margin-top:2px;border:1px solid #111;border-radius:999px;padding:8px 12px;background:#fff;cursor:pointer}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s}
+  .toast.show{opacity:1}
+  .hint{font-size:13px;color:#777;margin:6px 0 0}
+</style>
+
+<h1>Menu Discovery & Tag Filters</h1>
+<div class="hint">One-line descriptions + 2–3 flavor tags; light filters on top; ⓘ explains terms without disrupting flow.</div>
+
+<div class="chips row" id="filters"></div>
+
+<div class="grid" id="list"></div>
+
+<div class="toast" id="toast">Added to “ideas to try”</div>
+
+<script>
+const DRINKS = [
+  {name:"Iced Latte", tags:["Iced","Mild","Dairy"], desc:"Smooth espresso with chilled milk and light ice.", badge:"Popular"},
+  {name:"Flat White ⓘ", info:"A velvety espresso with microfoam; smaller milk volume than a latte.", tags:["Hot","Strong","Dairy"], desc:"Richer espresso flavor with silky steamed milk.", badge:""},
+  {name:"Cold Foam Cold Brew ⓘ", info:"Cold foam is aerated non-fat milk for a light, creamy top.", tags:["Iced","Strong","Low-sweet"], desc:"Cold brew topped with light cold foam; smooth and crisp."},
+  {name:"Matcha Latte", tags:["Hot","Sweet","Non-dairy friendly"], desc:"Balanced green-tea latte; creamy with gentle sweetness.", badge:"New"},
+  {name:"Americano", tags:["Hot","Strong","Low-sweet"], desc:"Espresso diluted with hot water; clean, bold taste."},
+  {name:"Caramel Macchiato", tags:["Hot","Sweet","Dairy"], desc:"Vanilla, milk, espresso, finished with caramel drizzle.", badge:"Popular"},
+  {name:"Brown Sugar Oat Shaken Espresso", tags:["Iced","Sweet","Non-dairy"], desc:"Shaken espresso with brown sugar and oat milk."},
+  {name:"Mocha", tags:["Hot","Sweet","Dairy"], desc:"Chocolate + espresso + steamed milk; cozy and rich."},
+  {name:"Pink Drink", tags:["Iced","Sweet","Non-dairy"], desc:"Strawberry açaí with coconut milk; fruity and light."},
+  {name:"Espresso Con Panna", tags:["Hot","Strong","Low-sweet"], desc:"A shot of espresso topped with a dollop of whipped cream."}
+];
+
+const FILTERS = ["Iced","Hot","Strong","Mild","Sweet","Low-sweet","Dairy","Non-dairy","Non-dairy friendly"];
+
+const $filters = document.getElementById('filters');
+const $list = document.getElementById('list');
+const $toast = document.getElementById('toast');
+let active = new Set();
+
+function renderFilters(){
+  $filters.innerHTML = '';
+  FILTERS.forEach(f=>{
+    const b=document.createElement('button');
+    b.className='chip';
+    b.textContent=f;
+    b.onclick=()=>{ active.has(f)?active.delete(f):active.add(f); b.classList.toggle('active'); renderList(); };
+    $filters.appendChild(b);
+  });
+}
+
+function matches(d){
+  if(active.size===0) return true;
+  return [...active].every(t=>d.tags?.includes(t));
+}
+
+function renderList(){
+  $list.innerHTML='';
+  DRINKS.filter(matches).forEach(d=>{
+    const c=document.createElement('div'); c.className='card';
+    c.innerHTML=`
+      <div class="img">Drink Image</div>
+      <div class="name">${d.name} ${d.badge?`<span class="badge">${d.badge}</span>`:''}</div>
+      <div class="desc">${d.desc}</div>
+      <div class="tags">${(d.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <button class="btn">Try this</button>
+      ${d.info?`<div class="hint"><span class="info">What is this?</span></div>`:''}
+    `;
+    const btn=c.querySelector('.btn');
+    btn.onclick=()=>{ $toast.textContent=`“${d.name}” added to ideas`; $toast.classList.add('show'); setTimeout(()=> $toast.classList.remove('show'),1500); };
+    if(d.info){
+      const inf=c.querySelector('.info');
+      inf.title=d.info; // 浏览器原生 tooltip
+    }
+    $list.appendChild(c);
+  });
+}
+
+renderFilters(); renderList();
+</script>
